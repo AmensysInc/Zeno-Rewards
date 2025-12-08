@@ -1,14 +1,13 @@
 from pydantic import BaseModel
+from uuid import UUID
 from datetime import datetime
 
-class OrganizationCreate(BaseModel):
-    name: str
+class AdminCreate(BaseModel):
     email: str
     password: str
 
-class OrganizationResponse(BaseModel):
-    id: str
-    name: str
+class AdminResponse(BaseModel):
+    id: UUID
     email: str
     created_at: datetime
 
