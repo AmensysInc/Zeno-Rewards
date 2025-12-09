@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import CreateOrganization from './pages/CreateOrganization';
-
+import OrganizationDashboard from './pages/organization/OrganizationDashboard';
+import CreateBusiness from './pages/admin/CreateBusiness';
 // Unified Login
 import Login from './pages/Login';
 
@@ -53,11 +54,19 @@ function App() {
           path="/organization/dashboard"
           element={
             <ProtectedRoute allowedTypes={['organization']}>
-              <AdminDashboard />
+              <OrganizationDashboard />
             </ProtectedRoute>
           }
         />
-
+         
+         <Route
+  path="/organization/create-business"
+  element={
+    <ProtectedRoute allowedTypes={['organization']}>
+      <CreateBusiness />
+    </ProtectedRoute>
+  }
+/>
         {/* Business Routes (formerly admin) */}
         <Route
           path="/business/dashboard"
