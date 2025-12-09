@@ -1,61 +1,16 @@
-# Rewards Program Frontend
+# React + Vite
 
-React frontend for the Rewards Program Management System.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Setup
+Currently, two official plugins are available:
 
-1. Install dependencies:
-```bash
-npm install
-```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-2. Create `.env` file:
-```
-REACT_APP_API_URL=http://localhost:8000
-```
+## React Compiler
 
-3. Start the development server:
-```bash
-npm start
-```
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-The app will open at `http://localhost:3000`
+## Expanding the ESLint configuration
 
-## Features
-
-- **Login Page**: Role-based login (Admin, Organization, Business)
-- **Admin Dashboard**: Create businesses, view organizations and businesses
-- **Organization Dashboard**: Create business logins, manage businesses
-- **Business Dashboard**: Navigation hub for business features
-- **Upload Page**: Upload Excel/CSV files, preview and approve transactions
-- **Transactions Page**: View transactions in list or summary mode, filter by phone/license
-
-## Routes
-
-- `/` - Login page
-- `/admin` - Admin dashboard (protected)
-- `/org/dashboard` - Organization dashboard (protected)
-- `/business/dashboard` - Business dashboard (protected)
-- `/business/upload` - Upload transactions (protected)
-- `/business/transactions` - View transactions (protected)
-
-## File Structure
-
-```
-src/
-  ├── components/
-  │   └── ProtectedRoute.js    # Route protection component
-  ├── pages/
-  │   ├── LoginPage.js         # Login page
-  │   ├── AdminPage.js         # Admin dashboard
-  │   ├── OrgDashboard.js      # Organization dashboard
-  │   ├── BusinessDashboard.js # Business dashboard
-  │   ├── UploadPage.js        # Transaction upload page
-  │   └── TransactionsPage.js  # Transactions view page
-  ├── services/
-  │   └── api.js               # API service functions
-  ├── App.js                   # Main app component with routing
-  ├── index.js                 # Entry point
-  └── index.css                # Global styles
-```
-
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
