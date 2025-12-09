@@ -18,12 +18,12 @@ function Navbar() {
   ];
 
   const adminLinks = [
-    { name: 'Dashboard', path: '/admin/dashboard' },
-    { name: 'Offers', path: '/admin/offers' },
-    { name: 'Transactions', path: '/admin/transactions' },
-    { name: 'Points', path: '/admin/points' },
-    { name: 'Users', path: '/admin/users' },
-    { name: 'Membership', path: '/admin/membership' }
+    { name: 'Dashboard', path: '/business/dashboard' },
+    { name: 'Offers', path: '/business/offers' },
+    { name: 'Transactions', path: '/business/transactions' },
+    { name: 'Points', path: '/business/points' },
+    { name: 'Users', path: '/business/users' },
+    { name: 'Membership', path: '/business/membership' }
   ];
 
   const organizationLinks = [
