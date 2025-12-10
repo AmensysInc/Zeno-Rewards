@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/shared/Navbar';
 import Card from '../../components/shared/Card';
 import Button from '../../components/shared/Button';
 import Input from '../../components/shared/Input';
 import Table from '../../components/shared/Table';
+
+const API_BASE_URL = 'http://localhost:8000';
 
 function UploadTransactions() {
   const [file, setFile] = useState(null);
@@ -16,15 +20,21 @@ function UploadTransactions() {
   const [recentUploads, setRecentUploads] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editDescription, setEditDescription] = useState('');
+  const { currentUser, useMockAuth } = useAuth();
   
   const navigate = useNavigate();
 
   // Load existing uploads on mount
   useEffect(() => {
-    loadUploads();
-  }, []);
+    if (useMockAuth) {
+      loadUploadsFromLocalStorage();
+    } else {
+      // TODO: Load from backend API when available
+      loadUploadsFromLocalStorage();
+    }
+  }, [useMockAuth]);
 
-  const loadUploads = () => {
+  const loadUploadsFromLocalStorage = () => {
     const uploads = JSON.parse(localStorage.getItem('uploads') || '[]');
     setRecentUploads(uploads);
   };
@@ -51,6 +61,8 @@ function UploadTransactions() {
       // Convert to JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
       
+      console.log('Parsed data:', jsonData.length, 'rows');
+      
       // Get column names
       if (jsonData.length > 0) {
         const cols = Object.keys(jsonData[0]);
@@ -64,10 +76,30 @@ function UploadTransactions() {
     reader.readAsBinaryString(file);
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     setUploading(true);
     
-    // Save upload summary to localStorage
+    try {
+      if (useMockAuth) {
+        // Mock mode - use localStorage
+        await handleMockUpload();
+      } else {
+        // Real backend mode - use API
+        await handleRealUpload();
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload failed: ' + (error.response?.data?.detail || error.message));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleMockUpload = async () => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Save to localStorage (mock mode)
     const uploadSummary = {
       id: Date.now(),
       date: new Date().toLocaleDateString(),
@@ -77,28 +109,60 @@ function UploadTransactions() {
       data: previewData
     };
     
-    // Get existing uploads
     const existingUploads = JSON.parse(localStorage.getItem('uploads') || '[]');
     existingUploads.push(uploadSummary);
     localStorage.setItem('uploads', JSON.stringify(existingUploads));
     
-    // Add to transactions (append, not replace)
     const existingTransactions = JSON.parse(localStorage.getItem('uploadedTransactions') || '[]');
     const allTransactions = [...existingTransactions, ...previewData];
     localStorage.setItem('uploadedTransactions', JSON.stringify(allTransactions));
     
-    setTimeout(() => {
-      setUploading(false);
-      setShowPreview(false);
-      setFile(null);
-      setPreviewData(null);
-      setColumns([]);
-      loadUploads();
-      
-      // Reset file input
-      const fileInput = document.getElementById('file-input');
-      if (fileInput) fileInput.value = '';
-    }, 1000);
+    finishUpload();
+  };
+
+  const handleRealUpload = async () => {
+    const businessId = currentUser.business_id;
+    const token = localStorage.getItem('access_token');
+    
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Upload to backend
+    const response = await axios.post(
+      `${API_BASE_URL}/businesses/${businessId}/upload-excel`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    
+    console.log('Upload response:', response.data);
+    alert('Upload successful! Transactions saved to database.');
+    
+    finishUpload();
+  };
+
+  const finishUpload = () => {
+    setShowPreview(false);
+    setFile(null);
+    setPreviewData(null);
+    setColumns([]);
+    
+    // Reload uploads
+    if (useMockAuth) {
+      loadUploadsFromLocalStorage();
+    } else {
+      // TODO: Reload from backend
+      loadUploadsFromLocalStorage();
+    }
+    
+    // Reset file input
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
   };
 
   const handleCancel = () => {
@@ -108,12 +172,12 @@ function UploadTransactions() {
     setShowPreview(false);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (upload) => {
     if (window.confirm('Are you sure you want to delete this upload?')) {
       const uploads = JSON.parse(localStorage.getItem('uploads') || '[]');
-      const updatedUploads = uploads.filter(upload => upload.id !== id);
+      const updatedUploads = uploads.filter(u => u.id !== upload.id);
       localStorage.setItem('uploads', JSON.stringify(updatedUploads));
-      loadUploads();
+      loadUploadsFromLocalStorage();
     }
   };
 
@@ -130,7 +194,7 @@ function UploadTransactions() {
     localStorage.setItem('uploads', JSON.stringify(updatedUploads));
     setEditingId(null);
     setEditDescription('');
-    loadUploads();
+    loadUploadsFromLocalStorage();
   };
 
   const handleCancelEdit = () => {
@@ -189,6 +253,17 @@ function UploadTransactions() {
           </Button>
           <h1 className="text-3xl font-bold text-gray-800">Upload Transactions</h1>
           <p className="text-gray-600">Upload your transaction history Excel file</p>
+          
+          {/* Mode Indicator */}
+          <div className="mt-2">
+            <span className={`text-sm px-3 py-1 rounded-full ${
+              useMockAuth 
+                ? 'bg-yellow-100 text-yellow-800' 
+                : 'bg-green-100 text-green-800'
+            }`}>
+              {useMockAuth ? '📝 Mock Mode (localStorage)' : '🔗 Connected to Backend API'}
+            </span>
+          </div>
         </div>
 
         {/* Upload Section */}
@@ -200,18 +275,18 @@ function UploadTransactions() {
               Select an Excel file (.xlsx, .xls) containing transaction data
             </p>
             
-          <label className="inline-block cursor-pointer">
-  <input
-    id="file-input"
-    type="file"
-    accept=".xlsx,.xls"
-    onChange={handleFileChange}
-    className="hidden"
-  />
-  <span className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition inline-block font-semibold">
-    Choose File
-  </span>
-</label>
+            <label className="inline-block cursor-pointer">
+              <input
+                id="file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <span className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition inline-block font-semibold">
+                Choose File
+              </span>
+            </label>
             
             {file && !showPreview && (
               <div className="mt-4 text-sm text-gray-600">
@@ -244,24 +319,24 @@ function UploadTransactions() {
                     onClick={handleProceed}
                     disabled={uploading}
                   >
-                    {uploading ? 'Processing...' : 'Proceed'}
+                    {uploading ? 'Uploading...' : 'Proceed'}
                   </Button>
                 </div>
               </div>
             </Card>
 
-          {/* Preview Data Table */}
-<Card>
-  <Table
-    columns={previewColumns}
-    data={previewData}
-    emptyMessage="No data to preview"
-  />
-</Card>
+            {/* Data Table - Using Table Component */}
+            <Card>
+              <Table
+                columns={previewColumns}
+                data={previewData}
+                emptyMessage="No data to preview"
+              />
+            </Card>
           </div>
         )}
 
-        {/* Recent Uploads Table */}
+        {/* Recent Uploads Table - Using Table Component */}
         {recentUploads.length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Recent Uploads</h2>
@@ -270,7 +345,7 @@ function UploadTransactions() {
                 columns={uploadsColumns}
                 data={recentUploads}
                 onEdit={handleEdit}
-                onDelete={(row) => handleDelete(row.id)}
+                onDelete={handleDelete}
                 emptyMessage="No uploads yet"
               />
               
