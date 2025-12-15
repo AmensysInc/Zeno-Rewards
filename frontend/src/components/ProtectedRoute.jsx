@@ -9,8 +9,14 @@ function ProtectedRoute({ children, requiredRole }) {
     return <Navigate to="/" replace />;
   }
 
-  if (requiredRole && role !== requiredRole) {
-    return <Navigate to="/" replace />;
+  if (requiredRole) {
+    // Allow staff to access business views
+    if (requiredRole === 'business' && (role === 'business' || role === 'staff')) {
+      return children;
+    }
+    if (role !== requiredRole) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return children;

@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getTransactions, getTransactionSummary } from '../services/api';
-import './TransactionsPage.css';
 
 function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState([]);
   const [filterPhone, setFilterPhone] = useState('');
   const [filterLicense, setFilterLicense] = useState('');
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'summary'
+  const [viewMode, setViewMode] = useState('list');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -55,25 +54,21 @@ function TransactionsPage() {
       </div>
       <div className="container">
         <div className="nav-tabs">
-          <Link to="/business/dashboard" className="nav-tab" style={{ textDecoration: 'none' }}>
-            Dashboard
-          </Link>
-          <Link to="/business/upload" className="nav-tab" style={{ textDecoration: 'none' }}>
-            Upload Transactions
-          </Link>
-          <Link to="/business/transactions" className="nav-tab active" style={{ textDecoration: 'none' }}>
-            Transactions
-          </Link>
+          <Link to="/business/dashboard" className="nav-tab no-underline">Dashboard</Link>
+          <Link to="/business/pos" className="nav-tab no-underline">Customers</Link>
+          <Link to="/business/offers" className="nav-tab no-underline">Offers</Link>
+          <Link to="/business/points" className="nav-tab no-underline">Points</Link>
+          <Link to="/business/upload" className="nav-tab no-underline">Upload Transactions</Link>
+          <Link to="/business/transactions" className="nav-tab active no-underline">Transactions</Link>
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div className="flex justify-between items-center mb-5">
             <h2>Transactions</h2>
             <div>
               <button
-                className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn mr-2 ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => setViewMode('list')}
-                style={{ marginRight: '10px' }}
               >
                 List View
               </button>
@@ -88,8 +83,8 @@ function TransactionsPage() {
 
           {viewMode === 'list' && (
             <>
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                <div className="form-group" style={{ flex: 1 }}>
+              <div className="flex gap-5 mb-5">
+                <div className="form-group flex-1">
                   <label>Filter by Phone Number</label>
                   <input
                     type="text"
@@ -98,7 +93,7 @@ function TransactionsPage() {
                     placeholder="Enter phone number"
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
+                <div className="form-group flex-1">
                   <label>Filter by License Plate</label>
                   <input
                     type="text"
@@ -107,7 +102,7 @@ function TransactionsPage() {
                     placeholder="Enter license plate"
                   />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <div className="flex items-end">
                   <button className="btn btn-primary" onClick={handleFilter}>
                     Filter
                   </button>
@@ -117,9 +112,9 @@ function TransactionsPage() {
               {loading ? (
                 <div className="loading">Loading...</div>
               ) : transactions.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div className="text-center py-10">
                   <p>No transactions found. Upload transactions to get started.</p>
-                  <Link to="/business/upload" className="btn btn-primary" style={{ marginTop: '20px' }}>
+                  <Link to="/business/upload" className="btn btn-primary mt-5">
                     Upload Transactions
                   </Link>
                 </div>
@@ -146,7 +141,7 @@ function TransactionsPage() {
                         <td>{trans.quantity}</td>
                         <td>${parseFloat(trans.amount).toFixed(2)}</td>
                         <td>
-                          <span style={{ color: trans.is_approved ? '#28a745' : '#ffc107' }}>
+                          <span className={trans.is_approved ? 'text-green-600' : 'text-yellow-500'}>
                             {trans.is_approved ? 'Approved' : 'Pending'}
                           </span>
                         </td>
@@ -161,22 +156,22 @@ function TransactionsPage() {
           {viewMode === 'summary' && (
             <div>
               {summary.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div className="text-center py-10">
                   <p>No transaction summary available. Upload and approve transactions to see summaries.</p>
-                  <Link to="/business/upload" className="btn btn-primary" style={{ marginTop: '20px' }}>
+                  <Link to="/business/upload" className="btn btn-primary mt-5">
                     Upload Transactions
                   </Link>
                 </div>
               ) : (
                 summary.map((item, index) => (
-                  <div key={index} className="card" style={{ marginBottom: '20px' }}>
+                  <div key={index} className="card mb-5">
                     <h3>Phone: {item.phone_number} | License: {item.license_plate}</h3>
                     <p><strong>Total Transactions:</strong> {item.total_transactions}</p>
                     <p><strong>Total Quantity:</strong> {item.total_quantity}</p>
                     <p><strong>Total Amount:</strong> ${item.total_amount.toFixed(2)}</p>
-                    <details style={{ marginTop: '10px' }}>
-                      <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>View Transactions</summary>
-                      <table className="table" style={{ marginTop: '10px' }}>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer font-semibold">View Transactions</summary>
+                      <table className="table mt-3">
                         <thead>
                           <tr>
                             <th>Date</th>

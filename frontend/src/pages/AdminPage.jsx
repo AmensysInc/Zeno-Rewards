@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createBusinessByAdmin, listOrganizations, listAllBusinesses } from '../services/api';
-import './AdminPage.css';
+import { createOrganizationByAdmin, createBusinessByAdmin, listOrganizations, listAllBusinesses } from '../services/api';
 
 function AdminPage() {
   const [organizations, setOrganizations] = useState([]);
   const [businesses, setBusinesses] = useState([]);
+  const [showCreateOrgForm, setShowCreateOrgForm] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [orgFormData, setOrgFormData] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
   const [formData, setFormData] = useState({
     orgId: '',
     name: '',
@@ -32,6 +37,25 @@ function AdminPage() {
       setBusinesses(bizRes.data);
     } catch (err) {
       setError('Failed to load data');
+    }
+  };
+
+  const handleCreateOrganization = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      await createOrganizationByAdmin(orgFormData.name, orgFormData.email, orgFormData.password);
+      setSuccess('Organization created successfully!');
+      setOrgFormData({ name: '', email: '', password: '' });
+      setShowCreateOrgForm(false);
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to create organization');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,7 +91,50 @@ function AdminPage() {
       </div>
       <div className="container">
         <div className="card">
-          <h2>Organizations</h2>
+          <div className="flex justify-between items-center mb-5">
+            <h2>Organizations</h2>
+            <button className="btn btn-primary" onClick={() => setShowCreateOrgForm(!showCreateOrgForm)}>
+              {showCreateOrgForm ? 'Cancel' : 'Create Organization'}
+            </button>
+          </div>
+
+          {showCreateOrgForm && (
+            <form onSubmit={handleCreateOrganization} className="mb-5 p-5 bg-gray-50 rounded">
+              <div className="form-group">
+                <label>Organization Name</label>
+                <input
+                  type="text"
+                  value={orgFormData.name}
+                  onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={orgFormData.email}
+                  onChange={(e) => setOrgFormData({ ...orgFormData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={orgFormData.password}
+                  onChange={(e) => setOrgFormData({ ...orgFormData, password: e.target.value })}
+                  required
+                />
+              </div>
+              {error && <div className="error">{error}</div>}
+              {success && <div className="success">{success}</div>}
+              <button type="submit" className="btn btn-success" disabled={loading}>
+                {loading ? 'Creating...' : 'Create Organization'}
+              </button>
+            </form>
+          )}
+
           <table className="table">
             <thead>
               <tr>
@@ -89,7 +156,7 @@ function AdminPage() {
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div className="flex justify-between items-center mb-5">
             <h2>Businesses</h2>
             <button className="btn btn-primary" onClick={() => setShowCreateForm(!showCreateForm)}>
               {showCreateForm ? 'Cancel' : 'Create Business'}
@@ -97,7 +164,7 @@ function AdminPage() {
           </div>
 
           {showCreateForm && (
-            <form onSubmit={handleCreateBusiness} style={{ marginBottom: '20px', padding: '20px', background: '#f8f9fa', borderRadius: '4px' }}>
+            <form onSubmit={handleCreateBusiness} className="mb-5 p-5 bg-gray-50 rounded">
               <div className="form-group">
                 <label>Organization</label>
                 <select

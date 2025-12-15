@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createBusiness, listMyBusinesses, getOrgDashboard } from '../services/api';
-import './OrgDashboard.css';
 
 function OrgDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
@@ -73,7 +72,7 @@ function OrgDashboard() {
         )}
 
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div className="flex justify-between items-center mb-5">
             <h2>My Businesses</h2>
             <button className="btn btn-primary" onClick={() => setShowCreateForm(!showCreateForm)}>
               {showCreateForm ? 'Cancel' : 'Create Business'}
@@ -81,7 +80,7 @@ function OrgDashboard() {
           </div>
 
           {showCreateForm && (
-            <form onSubmit={handleCreateBusiness} style={{ marginBottom: '20px', padding: '20px', background: '#f8f9fa', borderRadius: '4px' }}>
+            <form onSubmit={handleCreateBusiness} className="mb-5 p-5 bg-gray-50 rounded">
               <div className="form-group">
                 <label>Business Name</label>
                 <input

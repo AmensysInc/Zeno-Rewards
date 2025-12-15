@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { uploadTransactionsPreview, approveTransactions } from '../services/api';
-import './UploadPage.css';
 
 function UploadPage() {
   const [file, setFile] = useState(null);
@@ -51,7 +50,6 @@ function UploadPage() {
       setApproved([...approved, ...response.data]);
       setPreview([]);
       setFile(null);
-      // Reset file input
       document.getElementById('file-input').value = '';
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to approve transactions');
@@ -73,22 +71,19 @@ function UploadPage() {
       </div>
       <div className="container">
         <div className="nav-tabs">
-          <Link to="/business/dashboard" className="nav-tab" style={{ textDecoration: 'none' }}>
-            Dashboard
-          </Link>
-          <Link to="/business/upload" className="nav-tab active" style={{ textDecoration: 'none' }}>
-            Upload Transactions
-          </Link>
-          <Link to="/business/transactions" className="nav-tab" style={{ textDecoration: 'none' }}>
-            Transactions
-          </Link>
+          <Link to="/business/dashboard" className="nav-tab no-underline">Dashboard</Link>
+          <Link to="/business/pos" className="nav-tab no-underline">Customers</Link>
+          <Link to="/business/offers" className="nav-tab no-underline">Offers</Link>
+          <Link to="/business/points" className="nav-tab no-underline">Points</Link>
+          <Link to="/business/upload" className="nav-tab active no-underline">Upload Transactions</Link>
+          <Link to="/business/transactions" className="nav-tab no-underline">Transactions</Link>
         </div>
 
         <div className="card">
           <h2>Upload Transaction File</h2>
           <p>Upload an Excel (.xlsx, .xls) or CSV file with columns: phone_number, license_plate, date, description (optional), quantity (optional), amount (optional)</p>
           
-          <div className="form-group" style={{ marginTop: '20px' }}>
+          <div className="form-group mt-5">
             <label>Select File</label>
             <input
               id="file-input"
@@ -99,7 +94,7 @@ function UploadPage() {
           </div>
 
           {file && (
-            <div style={{ marginTop: '20px' }}>
+            <div className="mt-5">
               <p>Selected: {file.name}</p>
               <button className="btn btn-primary" onClick={handlePreview} disabled={loading}>
                 {loading ? 'Processing...' : 'Preview'}
@@ -107,14 +102,14 @@ function UploadPage() {
             </div>
           )}
 
-          {error && <div className="error" style={{ marginTop: '20px' }}>{error}</div>}
+          {error && <div className="error mt-5">{error}</div>}
         </div>
 
         {preview.length > 0 && (
           <div className="card">
             <h2>Preview Transactions ({preview.length})</h2>
             <p>Review the transactions below and click Approve to save them.</p>
-            <button className="btn btn-success" onClick={handleApprove} disabled={loading} style={{ marginBottom: '20px' }}>
+            <button className="btn btn-success mb-5" onClick={handleApprove} disabled={loading}>
               {loading ? 'Approving...' : 'Approve All'}
             </button>
             <table className="table">
@@ -148,9 +143,9 @@ function UploadPage() {
           <div className="card">
             <h2>Approved Transactions ({approved.length})</h2>
             <p>These transactions have been saved. View them in the Transactions page.</p>
-            <div style={{ marginTop: '20px' }}>
+            <div className="mt-5">
               {approved.map((trans, index) => (
-                <div key={index} style={{ padding: '10px', marginBottom: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+                <div key={index} className="p-3 mb-3 bg-gray-50 rounded">
                   <strong>Date:</strong> {new Date(trans.date).toLocaleDateString()} | 
                   <strong> Phone:</strong> {trans.phone_number} | 
                   <strong> License:</strong> {trans.license_plate} | 
@@ -159,7 +154,7 @@ function UploadPage() {
                 </div>
               ))}
             </div>
-            <Link to="/business/transactions" className="btn btn-primary" style={{ marginTop: '20px' }}>
+            <Link to="/business/transactions" className="btn btn-primary mt-5">
               View All Transactions
             </Link>
           </div>

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { loginAdmin, loginOrg, loginBusiness } from '../services/api';
-import './LoginPage.css';
+import { loginAdmin, loginOrg, loginBusiness, loginStaff } from '../services/api';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('admin'); // admin, organization, business
+  const [role, setRole] = useState('admin');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -35,6 +34,12 @@ function LoginPage() {
         localStorage.setItem('role', 'business');
         localStorage.setItem('business_id', response.data.business_id);
         navigate('/business/dashboard');
+      } else if (role === 'staff') {
+        response = await loginStaff(email, password);
+        localStorage.setItem('access_token', response.data.access_token);
+        localStorage.setItem('role', 'staff');
+        localStorage.setItem('business_id', response.data.business_id);
+        navigate('/business/dashboard');
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed');
@@ -44,10 +49,10 @@ function LoginPage() {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h1>Rewards Program</h1>
-        <h2>Login</h2>
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className="bg-white p-10 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-center mb-2 text-gray-800 text-3xl font-bold">Rewards Program</h1>
+        <h2 className="text-center mb-8 text-gray-600 text-xl font-normal">Login</h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Role</label>
@@ -55,6 +60,7 @@ function LoginPage() {
               <option value="admin">Admin</option>
               <option value="organization">Organization</option>
               <option value="business">Business</option>
+              <option value="staff">Business Staff</option>
             </select>
           </div>
           <div className="form-group">
@@ -76,14 +82,14 @@ function LoginPage() {
             />
           </div>
           {error && <div className="error">{error}</div>}
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary w-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
         
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <p style={{ marginBottom: '10px', color: '#666' }}>Don't have an organization account?</p>
-          <Link to="/create-org" style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500' }}>
+        <div className="mt-5 text-center">
+          <p className="mb-3 text-gray-600">Don't have an organization account?</p>
+          <Link to="/create-org" className="text-blue-600 no-underline font-medium hover:underline">
             Create Organization Account
           </Link>
         </div>

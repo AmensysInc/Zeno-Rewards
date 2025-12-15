@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createOrg } from '../services/api';
-import './CreateOrgPage.css';
 
 function CreateOrgPage() {
   const [formData, setFormData] = useState({
@@ -20,7 +19,6 @@ function CreateOrgPage() {
     setError('');
     setSuccess('');
 
-    // Validation
     if (!formData.name || !formData.email || !formData.password) {
       setError('All fields are required');
       return;
@@ -43,7 +41,6 @@ function CreateOrgPage() {
       setSuccess('Organization created successfully! You can now login.');
       setFormData({ name: '', email: '', password: '', confirmPassword: '' });
       
-      // Redirect to login after 2 seconds
       setTimeout(() => {
         navigate('/');
       }, 2000);
@@ -55,10 +52,10 @@ function CreateOrgPage() {
   };
 
   return (
-    <div className="create-org-container">
-      <div className="create-org-card">
-        <h1>Create Organization</h1>
-        <p>Register a new organization account</p>
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className="bg-white p-10 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-center mb-2 text-gray-800 text-3xl font-bold">Create Organization</h1>
+        <p className="text-center mb-8 text-gray-600">Register a new organization account</p>
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -108,13 +105,13 @@ function CreateOrgPage() {
           {error && <div className="error">{error}</div>}
           {success && <div className="success">{success}</div>}
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Create Organization'}
           </button>
         </form>
 
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <Link to="/" style={{ color: '#007bff', textDecoration: 'none' }}>
+        <div className="mt-5 text-center">
+          <Link to="/" className="text-blue-600 no-underline hover:underline">
             ← Back to Login
           </Link>
         </div>
