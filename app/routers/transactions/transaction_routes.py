@@ -6,6 +6,8 @@ from io import BytesIO
 from datetime import datetime
 from app.database import SessionLocal
 from app.routers.transactions.transaction_models import Transaction
+from app.routers.customers.cust_models import Customer
+from app.routers.rewards.points_models import PointsHistory, EarningRule
 from app.routers.transactions.transaction_schemas import TransactionCreate, TransactionResponse, TransactionPreview
 from app.dependencies import get_current_business, get_db
 
@@ -78,6 +80,29 @@ def approve_transactions(
     business_id = UUID(current["user"]["business_id"])
     
     approved_transactions = []
+    # Preload earning rules for this business
+    rules = (
+        db.query(EarningRule)
+        .filter(EarningRule.business_id == business_id, EarningRule.active == True)
+        .all()
+    )
+
+    def calculate_points(amount, quantity):
+        """Very simple rules engine: per_dollar and per_service."""
+        total = 0
+        for r in rules:
+            if r.rule_type == "per_dollar":
+                try:
+                    total += int(amount) * r.points_awarded
+                except Exception:
+                    continue
+            elif r.rule_type == "per_service":
+                total += int(quantity) * r.points_awarded
+        # fallback if no rules configured
+        if not rules:
+            total += int(quantity)
+        return max(total, 0)
+
     for trans_data in transactions:
         transaction = Transaction(
             business_id=business_id,
@@ -92,6 +117,31 @@ def approve_transactions(
         )
         db.add(transaction)
         approved_transactions.append(transaction)
+
+        # Points earning via rules (or basic fallback)
+        customer = (
+            db.query(Customer)
+            .filter(Customer.business_id == business_id, Customer.phone == trans_data.phone_number)
+            .first()
+        )
+        if not customer:
+            customer = Customer(
+                business_id=business_id,
+                phone=trans_data.phone_number,
+            )
+            db.add(customer)
+            db.flush()
+
+        earn_points = calculate_points(trans_data.amount, trans_data.quantity)
+        if earn_points > 0:
+            customer.points = (customer.points or 0) + earn_points
+            history = PointsHistory(
+                customer_id=customer.id,
+                business_id=business_id,
+                points=earn_points,
+                reason="transaction"
+            )
+            db.add(history)
     
     db.commit()
     

@@ -3,12 +3,10 @@ from uuid import UUID
 from datetime import datetime
 
 
-
 class CustomerCreate(BaseModel):
     phone: str
     name: str | None = None
     email: EmailStr | None = None
-    password: str | None = None  
 
 
 class CustomerResponse(BaseModel):

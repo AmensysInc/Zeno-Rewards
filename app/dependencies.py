@@ -7,6 +7,7 @@ from app.config import settings
 from app.routers.admin.admin_models import Admin
 from app.routers.organizations.org_models import Organization
 from app.routers.businesses.biz_models import Business
+from app.routers.businesses.staff_models import Staff
 
 security = HTTPBearer()
 
@@ -52,13 +53,27 @@ def get_current_org(current_user: dict = Depends(get_current_user)):
     return current_user
 
 def get_current_business(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user["role"] != "business":
+    if current_user["role"] not in ("business", "staff"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Business access required"
         )
     from uuid import UUID
-    business_id = UUID(current_user["business_id"])
+
+    business_id = None
+    if current_user["role"] == "business":
+        business_id = UUID(current_user["business_id"])
+    else:
+        # staff – resolve business via staff record
+        staff_id = UUID(current_user["user_id"])
+        staff = db.query(Staff).filter(Staff.id == staff_id, Staff.active == True).first()
+        if not staff:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff not found or inactive"
+            )
+        business_id = staff.business_id
+
     business = db.query(Business).filter(Business.id == business_id).first()
     if not business:
         raise HTTPException(

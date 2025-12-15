@@ -12,10 +12,17 @@ router = APIRouter()
 
 @router.post("/create", response_model=AdminResponse)
 def create_admin(admin_data: AdminCreate, db: Session = Depends(get_db)):
+    """Create or reset an admin user.
+
+    If an admin with this email already exists, its password is updated.
+    """
     existing = db.query(Admin).filter(Admin.email == admin_data.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Admin with this email already exists")
-    
+        existing.password_hash = hash_password(admin_data.password)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
     admin = Admin(
         email=admin_data.email,
         password_hash=hash_password(admin_data.password)
@@ -24,6 +31,35 @@ def create_admin(admin_data: AdminCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(admin)
     return admin
+
+@router.post("/organization/create")
+def create_organization_by_admin(
+    name: str,
+    email: str,
+    password: str,
+    current_admin: dict = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new organization (admin only)"""
+    # Check if organization email already exists
+    existing = db.query(Organization).filter(Organization.email == email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Organization with this email already exists")
+    
+    org = Organization(
+        name=name,
+        email=email,
+        password_hash=hash_password(password)
+    )
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "email": org.email,
+        "created_at": org.created_at
+    }
 
 @router.post("/business/create")
 def create_business_by_admin(

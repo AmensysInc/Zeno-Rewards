@@ -1,8 +1,8 @@
 # Activate virtual environment
 .\venv\Scripts\Activate.ps1
 
-# Set environment variables
-$env:DATABASE_URL = "postgresql://admin:password@localhost:5432/rewards"
+# Set environment variables (use SQLite locally to avoid needing Postgres)
+$env:DATABASE_URL = "sqlite:///./rewards.db"
 $env:SECRET_KEY = "supersecretkeyhere"
 
 # Start the backend server

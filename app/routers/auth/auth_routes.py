@@ -5,6 +5,7 @@ from app.database import SessionLocal
 from app.security import verify_password, create_access_token, create_refresh_token
 from app.routers.organizations.org_models import Organization
 from app.routers.businesses.biz_models import Business
+from app.routers.businesses.staff_models import Staff
 from app.routers.admin.admin_models import Admin
 
 router = APIRouter()
@@ -80,4 +81,26 @@ def login_business(login_data: LoginRequest, db: Session = Depends(get_db)):
         "role": "business",
         "business_id": str(business.id),
         "org_id": str(business.org_id)
+    }
+
+
+@router.post("/login-staff")
+def login_staff(login_data: LoginRequest, db: Session = Depends(get_db)):
+    staff = db.query(Staff).filter(Staff.email == login_data.email, Staff.active == True).first()
+    if not staff or not verify_password(login_data.password, staff.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    data = {
+        "sub": str(staff.id),
+        "role": "staff",
+        "staff_id": str(staff.id),
+        "business_id": str(staff.business_id)
+    }
+
+    return {
+        "access_token": create_access_token(data),
+        "refresh_token": create_refresh_token(data),
+        "role": "staff",
+        "staff_id": str(staff.id),
+        "business_id": str(staff.business_id)
     }
