@@ -27,7 +27,7 @@ def business_analytics(
     db: Session = Depends(get_db),
 ):
     """Basic analytics for a business dashboard."""
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
 
     total_customers = db.query(Customer).filter(Customer.business_id == business_id).count()
     total_points_issued = (

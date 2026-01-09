@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { loginAdmin, loginOrg, loginBusiness, loginStaff } from '../services/api';
+import { loginAdmin, loginOrg, loginBusiness, loginStaff, loginCustomer } from '../services/api';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -39,7 +39,14 @@ function LoginPage() {
         localStorage.setItem('access_token', response.data.access_token);
         localStorage.setItem('role', 'staff');
         localStorage.setItem('business_id', response.data.business_id);
-        navigate('/business/dashboard');
+        navigate('/staff/customers');
+      } else if (role === 'customer') {
+        response = await loginCustomer(email, password);
+        localStorage.setItem('access_token', response.data.access_token);
+        localStorage.setItem('role', 'customer');
+        localStorage.setItem('customer_id', response.data.customer_id);
+        localStorage.setItem('business_id', response.data.business_id);
+        navigate('/customer/dashboard');
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed');
@@ -61,6 +68,7 @@ function LoginPage() {
               <option value="organization">Organization</option>
               <option value="business">Business</option>
               <option value="staff">Business Staff</option>
+              <option value="customer">Customer</option>
             </select>
           </div>
           <div className="form-group">

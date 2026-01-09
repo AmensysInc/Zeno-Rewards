@@ -8,6 +8,7 @@ from app.routers.admin.admin_models import Admin
 from app.routers.organizations.org_models import Organization
 from app.routers.businesses.biz_models import Business
 from app.routers.businesses.staff_models import Staff
+from app.routers.customers.cust_models import Customer
 
 security = HTTPBearer()
 
@@ -81,3 +82,36 @@ def get_current_business(current_user: dict = Depends(get_current_user), db: Ses
             detail="Business not found"
         )
     return {"user": current_user, "business": business}
+
+
+def get_current_customer(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user["role"] != "customer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customer access required"
+        )
+    from uuid import UUID
+    customer_id = UUID(current_user["user_id"])
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer not found"
+        )
+    return {"user": current_user, "customer": customer}
+
+def get_current_staff(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user["role"] != "staff":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff access required"
+        )
+    from uuid import UUID
+    staff_id = UUID(current_user["user_id"])
+    staff = db.query(Staff).filter(Staff.id == staff_id, Staff.active == True).first()
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Staff not found or inactive"
+        )
+    return {"user": current_user, "staff": staff}

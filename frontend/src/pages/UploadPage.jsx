@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { uploadTransactionsPreview, approveTransactions } from '../services/api';
+import BusinessLayout from '../components/BusinessLayout';
 
 function UploadPage() {
   const [file, setFile] = useState(null);
@@ -8,7 +9,6 @@ function UploadPage() {
   const [approved, setApproved] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -58,30 +58,11 @@ function UploadPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
-  };
-
   return (
-    <div>
-      <div className="navbar">
-        <h1>Upload Transactions</h1>
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-      <div className="container">
-        <div className="nav-tabs">
-          <Link to="/business/dashboard" className="nav-tab no-underline">Dashboard</Link>
-          <Link to="/business/pos" className="nav-tab no-underline">Customers</Link>
-          <Link to="/business/offers" className="nav-tab no-underline">Offers</Link>
-          <Link to="/business/points" className="nav-tab no-underline">Points</Link>
-          <Link to="/business/upload" className="nav-tab active no-underline">Upload Transactions</Link>
-          <Link to="/business/transactions" className="nav-tab no-underline">Transactions</Link>
-        </div>
-
-        <div className="card">
-          <h2>Upload Transaction File</h2>
-          <p>Upload an Excel (.xlsx, .xls) or CSV file with columns: phone_number, license_plate, date, description (optional), quantity (optional), amount (optional)</p>
+    <BusinessLayout>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload Transaction File</h2>
+          <p>Upload an Excel (.xlsx, .xls) or CSV file with columns: phone_number, license_plate, date, description (optional), quantity (optional), amount (optional), membership_id (optional)</p>
           
           <div className="form-group mt-5">
             <label>Select File</label>
@@ -106,8 +87,8 @@ function UploadPage() {
         </div>
 
         {preview.length > 0 && (
-          <div className="card">
-            <h2>Preview Transactions ({preview.length})</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Preview Transactions ({preview.length})</h2>
             <p>Review the transactions below and click Approve to save them.</p>
             <button className="btn btn-success mb-5" onClick={handleApprove} disabled={loading}>
               {loading ? 'Approving...' : 'Approve All'}
@@ -116,6 +97,7 @@ function UploadPage() {
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Customer Code</th>
                   <th>Phone Number</th>
                   <th>License Plate</th>
                   <th>Description</th>
@@ -127,8 +109,9 @@ function UploadPage() {
                 {preview.map((trans, index) => (
                   <tr key={index}>
                     <td>{new Date(trans.date).toLocaleDateString()}</td>
+                    <td>{trans.customer_code || '-'}</td>
                     <td>{trans.phone_number}</td>
-                    <td>{trans.license_plate}</td>
+                    <td>{trans.license_plate || '-'}</td>
                     <td>{trans.description || '-'}</td>
                     <td>{trans.quantity}</td>
                     <td>${parseFloat(trans.amount).toFixed(2)}</td>
@@ -140,15 +123,16 @@ function UploadPage() {
         )}
 
         {approved.length > 0 && (
-          <div className="card">
-            <h2>Approved Transactions ({approved.length})</h2>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Approved Transactions ({approved.length})</h2>
             <p>These transactions have been saved. View them in the Transactions page.</p>
             <div className="mt-5">
               {approved.map((trans, index) => (
                 <div key={index} className="p-3 mb-3 bg-gray-50 rounded">
                   <strong>Date:</strong> {new Date(trans.date).toLocaleDateString()} | 
+                  <strong> Customer Code:</strong> {trans.customer_code || '-'} | 
                   <strong> Phone:</strong> {trans.phone_number} | 
-                  <strong> License:</strong> {trans.license_plate} | 
+                  <strong> License:</strong> {trans.license_plate || '-'} | 
                   <strong> Description:</strong> {trans.description || '-'} | 
                   <strong> Quantity:</strong> {trans.quantity}
                 </div>
@@ -159,8 +143,7 @@ function UploadPage() {
             </Link>
           </div>
         )}
-      </div>
-    </div>
+    </BusinessLayout>
   );
 }
 

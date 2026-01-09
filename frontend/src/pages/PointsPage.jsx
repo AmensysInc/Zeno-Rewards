@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { listEarningRules, createEarningRule } from '../services/api';
+import { listEarningRules, createEarningRule, getPointsLedger, getPointBalances } from '../services/api';
+import BusinessLayout from '../components/BusinessLayout';
 
 function PointsPage() {
   const [rules, setRules] = useState([]);
+  const [ledger, setLedger] = useState([]);
+  const [balances, setBalances] = useState([]);
   const [ruleName, setRuleName] = useState('');
   const [pointsAwarded, setPointsAwarded] = useState('');
   const [error, setError] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
-  const [activeSection, setActiveSection] = useState('registration');
-  const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState('ledger');
+  const [loading, setLoading] = useState(false);
 
   const loadRules = async () => {
     setError('');
@@ -21,14 +23,40 @@ function PointsPage() {
     }
   };
 
+  const loadLedger = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await getPointsLedger(null, 100, 0);
+      setLedger(res.data || []);
+    } catch (err) {
+      setError('Failed to load points ledger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBalances = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await getPointBalances();
+      setBalances(res.data || []);
+    } catch (err) {
+      setError('Failed to load point balances');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadRules();
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
-  };
+    if (activeSection === 'ledger') {
+      loadLedger();
+    } else if (activeSection === 'balances') {
+      loadBalances();
+    }
+  }, [activeSection]);
 
   const handleCreateRegistrationRule = async (e) => {
     e.preventDefault();
@@ -94,33 +122,47 @@ function PointsPage() {
     JSON.parse(r.conditions || '{}').type === 'registration'
   );
 
-  return (
-    <div>
-      <div className="navbar">
-        <h1>Points Management</h1>
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-      <div className="container">
-        <div className="nav-tabs">
-          <Link to="/business/dashboard" className="nav-tab no-underline">Dashboard</Link>
-          <Link to="/business/pos" className="nav-tab no-underline">Customers</Link>
-          <Link to="/business/offers" className="nav-tab no-underline">Offers</Link>
-          <Link to="/business/points" className="nav-tab active no-underline">Points</Link>
-          <Link to="/business/upload" className="nav-tab no-underline">Upload Transactions</Link>
-          <Link to="/business/transactions" className="nav-tab no-underline">Transactions</Link>
-        </div>
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString();
+  };
 
-        <div className="card">
-          <div className="nav-tabs mb-5 border-b-2 border-gray-300">
+  const getRewardTypeLabel = (type) => {
+    const labels = {
+      'POINTS': 'Points',
+      'DISCOUNT_PERCENT': 'Discount %',
+      'FREE_MONTH': 'Free Month'
+    };
+    return labels[type] || type;
+  };
+
+  return (
+    <BusinessLayout>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex gap-4 mb-6 border-b border-gray-300">
             <button
-              className={`nav-tab ${activeSection === 'registration' ? 'active' : ''} border-none bg-transparent cursor-pointer`}
+              className={`px-4 py-2 font-medium ${activeSection === 'ledger' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
+              type="button"
+              onClick={() => setActiveSection('ledger')}
+            >
+              Points Ledger
+            </button>
+            <button
+              className={`px-4 py-2 font-medium ${activeSection === 'balances' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
+              type="button"
+              onClick={() => setActiveSection('balances')}
+            >
+              Point Balances
+            </button>
+            <button
+              className={`px-4 py-2 font-medium ${activeSection === 'registration' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
               type="button"
               onClick={() => setActiveSection('registration')}
             >
               Registration Points
             </button>
             <button
-              className={`nav-tab ${activeSection === 'categories' ? 'active' : ''} border-none bg-transparent cursor-pointer`}
+              className={`px-4 py-2 font-medium ${activeSection === 'categories' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
               type="button"
               onClick={() => setActiveSection('categories')}
             >
@@ -128,37 +170,114 @@ function PointsPage() {
             </button>
           </div>
 
+          {activeSection === 'ledger' && (
+            <>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Points Ledger</h2>
+              <p className="text-gray-600 mb-4">Complete history of all point transactions.</p>
+              
+              {loading ? (
+                <p className="text-gray-600">Loading ledger...</p>
+              ) : ledger.length === 0 ? (
+                <p className="text-gray-600">No ledger entries found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reward Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rule ID</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {ledger.map((entry) => (
+                        <tr key={entry.points_id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(entry.created_at)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.customer_id || entry.member_id || '-'}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${entry.points_earned >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {entry.points_earned >= 0 ? '+' : ''}{entry.points_earned}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getRewardTypeLabel(entry.reward_type_applied)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.transaction_id ? entry.transaction_id.substring(0, 8) + '...' : '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.rule_id ? entry.rule_id.substring(0, 8) + '...' : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeSection === 'balances' && (
+            <>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Point Balances</h2>
+              <p className="text-gray-600 mb-4">Current point balances for all customers.</p>
+              
+              {loading ? (
+                <p className="text-gray-600">Loading balances...</p>
+              ) : balances.length === 0 ? (
+                <p className="text-gray-600">No balances found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Points</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {balances.map((balance) => (
+                        <tr key={balance.customer_id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{balance.customer_id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">{balance.total_points}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(balance.last_updated_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
           {activeSection === 'registration' && (
             <>
-              <h2>Registration Bonus Points</h2>
-              <p>Set the points awarded when a new customer registers.</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Registration Bonus Points</h2>
+              <p className="text-gray-600 mb-4">Set the points awarded when a new customer registers.</p>
               
               {registrationRule ? (
-                <div className="p-4 bg-green-50 rounded mb-5">
+                <div className="p-4 bg-green-50 border border-green-200 rounded mb-5">
                   <p><strong>Current Setting:</strong> {registrationRule.points_awarded} points for registration</p>
                   <p className="text-sm text-gray-600">To change, create a new rule (this will update the default).</p>
                 </div>
               ) : (
-                <div className="p-4 bg-yellow-50 rounded mb-5">
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded mb-5">
                   <p>No registration points rule set yet. Default is 5 points.</p>
                 </div>
               )}
 
-              <form onSubmit={handleCreateRegistrationRule}>
-                <div className="form-group">
-                  <label>Points for Registration *</label>
+              <form onSubmit={handleCreateRegistrationRule} className="max-w-md">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Points for Registration *</label>
                   <input
                     type="number"
                     value={pointsAwarded}
                     onChange={(e) => setPointsAwarded(e.target.value)}
                     placeholder="e.g., 5"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                   <small className="text-gray-600">Points awarded when a customer registers</small>
                 </div>
-                {error && <div className="error mt-2">{error}</div>}
-                {statusMsg && <div className="success mt-2">{statusMsg}</div>}
-                <button type="submit" className="btn btn-primary mt-2">
+                {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">{error}</div>}
+                {statusMsg && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md">{statusMsg}</div>}
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                   Save Registration Points
                 </button>
               </form>
@@ -167,27 +286,27 @@ function PointsPage() {
 
           {activeSection === 'categories' && (
             <>
-              <h2>Points by Car Wash Category</h2>
-              <p>Set points awarded for different car wash service types.</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Points by Car Wash Category</h2>
+              <p className="text-gray-600 mb-4">Set points awarded for different car wash service types.</p>
 
               <div className="mb-8">
-                <h3>Quick Setup - Common Categories</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Setup - Common Categories</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {washCategories.map((cat) => {
                     const existingRule = rules.find(r => 
                       r.rule_name === cat.name || 
                       (r.conditions && JSON.parse(r.conditions || '{}').service_type === cat.name.toLowerCase().replace(/\s+/g, '_'))
                     );
                     return (
-                      <div key={cat.name} className="p-4 border border-gray-300 rounded">
-                        <h4>{cat.name}</h4>
+                      <div key={cat.name} className="p-4 border border-gray-300 rounded-lg">
+                        <h4 className="font-medium text-gray-900 mb-2">{cat.name}</h4>
                         {existingRule ? (
-                          <p><strong>Current:</strong> {existingRule.points_awarded} points</p>
+                          <p className="text-sm text-gray-600 mb-3"><strong>Current:</strong> {existingRule.points_awarded} points</p>
                         ) : (
-                          <p className="text-gray-600">Not set (Suggested: {cat.defaultPoints} points)</p>
+                          <p className="text-sm text-gray-600 mb-3">Not set (Suggested: {cat.defaultPoints} points)</p>
                         )}
                         <button
-                          className="btn btn-secondary mt-2 w-full"
+                          className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm"
                           onClick={async () => {
                             setRuleName(cat.name);
                             setPointsAwarded(cat.defaultPoints.toString());
@@ -213,67 +332,71 @@ function PointsPage() {
                 </div>
               </div>
 
-              <h3>Create Custom Category</h3>
-              <form onSubmit={handleCreateCategoryRule}>
-                <div className="form-group">
-                  <label>Category Name *</label>
-                  <input
-                    type="text"
-                    value={ruleName}
-                    onChange={(e) => setRuleName(e.target.value)}
-                    placeholder="e.g., Premium Wash"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Points Awarded *</label>
-                  <input
-                    type="number"
-                    value={pointsAwarded}
-                    onChange={(e) => setPointsAwarded(e.target.value)}
-                    placeholder="e.g., 20"
-                    required
-                  />
-                </div>
-                {error && <div className="error mt-2">{error}</div>}
-                {statusMsg && <div className="success mt-2">{statusMsg}</div>}
-                <button type="submit" className="btn btn-primary mt-2">
-                  Create Category Rule
-                </button>
-              </form>
+              <div className="border-t border-gray-300 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Create Custom Category</h3>
+                <form onSubmit={handleCreateCategoryRule} className="max-w-md">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category Name *</label>
+                    <input
+                      type="text"
+                      value={ruleName}
+                      onChange={(e) => setRuleName(e.target.value)}
+                      placeholder="e.g., Premium Wash"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Points Awarded *</label>
+                    <input
+                      type="number"
+                      value={pointsAwarded}
+                      onChange={(e) => setPointsAwarded(e.target.value)}
+                      placeholder="e.g., 20"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">{error}</div>}
+                  {statusMsg && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md">{statusMsg}</div>}
+                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Create Category Rule
+                  </button>
+                </form>
+              </div>
 
-              <div className="mt-10">
-                <h3>All Category Rules</h3>
+              <div className="mt-10 border-t border-gray-300 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">All Category Rules</h3>
                 {rules.filter(r => r.rule_type === 'per_service').length === 0 ? (
-                  <p>No category rules created yet.</p>
+                  <p className="text-gray-600">No category rules created yet.</p>
                 ) : (
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Category</th>
-                        <th>Points</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rules.filter(r => r.rule_type === 'per_service').map((rule) => (
-                        <tr key={rule.id}>
-                          <td>{rule.rule_name}</td>
-                          <td>{rule.points_awarded}</td>
-                          <td>{rule.active ? 'Active' : 'Inactive'}</td>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {rules.filter(r => r.rule_type === 'per_service').map((rule) => (
+                          <tr key={rule.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{rule.rule_name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{rule.points_awarded}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{rule.active ? 'Active' : 'Inactive'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             </>
           )}
         </div>
-      </div>
-    </div>
+    </BusinessLayout>
   );
 }
 
 export default PointsPage;
-

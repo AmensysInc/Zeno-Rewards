@@ -10,13 +10,39 @@ function ProtectedRoute({ children, requiredRole }) {
   }
 
   if (requiredRole) {
-    // Allow staff to access business views
-    if (requiredRole === 'business' && (role === 'business' || role === 'staff')) {
+    // Staff can ONLY access staff routes, not business routes
+    if (role === 'staff') {
+      // Staff should only access staff routes
+      if (requiredRole === 'staff') {
+        return children;
+      } else {
+        // Staff trying to access non-staff routes - redirect to staff portal
+        return <Navigate to="/staff/customers" replace />;
+      }
+    }
+    
+    // Business users can access business routes
+    if (requiredRole === 'business' && role === 'business') {
       return children;
     }
-    if (role !== requiredRole) {
-      return <Navigate to="/" replace />;
+    
+    // Customer role
+    if (requiredRole === 'customer' && role === 'customer') {
+      return children;
     }
+    
+    // Admin role
+    if (requiredRole === 'admin' && role === 'admin') {
+      return children;
+    }
+    
+    // Organization role
+    if (requiredRole === 'organization' && role === 'organization') {
+      return children;
+    }
+    
+    // If role doesn't match, redirect to login
+    return <Navigate to="/" replace />;
   }
 
   return children;

@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date as date_type
 import uuid as _uuid
 
 from app.database import SessionLocal
 from app.dependencies import get_current_business
 from app.routers.rewards.offers_models import Offer
+from app.routers.rewards.offers_schemas import OfferCreate, OfferResponse
 from app.routers.rewards.redemption_models import Redemption
 from app.routers.rewards.points_models import PointsHistory, EarningRule
 from app.routers.rewards.points_schemas import EarningRuleCreate, EarningRuleResponse
@@ -24,71 +25,129 @@ def get_db():
         db.close()
 
 
-@router.post("/offers/create")
+@router.post("/offers/create", response_model=OfferResponse)
 def create_offer(
-    title: str,
-    category: str,
-    price: float,
-    points_required: int,
-    status: str = "Active",
-    start_date: str = None,
-    end_date: str = None,
-    description: str = None,
+    payload: OfferCreate,
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     
-    # Parse date strings to datetime objects
-    start_date_obj = None
-    end_date_obj = None
-    if start_date:
+    # Calculate points_required from reward_value if reward_type is POINTS
+    points_required = None
+    if payload.reward_type == "POINTS":
         try:
-            start_date_obj = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        except:
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
-    if end_date:
-        try:
-            end_date_obj = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-        except:
-            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+            points_required = int(payload.reward_value)
+        except ValueError:
+            points_required = 0
     
     offer = Offer(
         business_id=business_id,
-        title=title,
-        category=category,
-        price=price,
+        name=payload.name,
+        description=payload.description,
+        customer_type=payload.customer_type,
+        product_type=payload.product_type,
+        wash_type=payload.wash_type,
+        membership_term=payload.membership_term,
+        reward_type=payload.reward_type,
+        reward_value=payload.reward_value,
+        per_unit=payload.per_unit,
+        priority=payload.priority,
+        max_uses_per_customer=payload.max_uses_per_customer,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        is_active=payload.is_active,
+        # Backward compatibility fields
+        title=payload.name,  # Alias
+        category=payload.wash_type,  # Alias
         points_required=points_required,
-        status=status,
-        start_date=start_date_obj,
-        expiry_date=end_date_obj,
-        description=description,
+        status="Active" if payload.is_active else "Inactive",
+        expiry_date=datetime.combine(payload.end_date, datetime.min.time()) if payload.end_date else None,
     )
     db.add(offer)
     db.commit()
     db.refresh(offer)
+    
+    # Send email notifications to eligible customers if offer is active
+    if offer.is_active:
+        try:
+            from app.routers.notifications.email_service import email_service
+            from sqlalchemy import or_
+            from datetime import date
+            
+            # Get eligible customers based on customer_type
+            customer_type_filter = offer.customer_type
+            today = date.today()
+            
+            # Check if offer is currently valid
+            if offer.start_date <= today and (offer.end_date is None or offer.end_date >= today):
+                # Get customers matching the offer criteria
+                customers_query = db.query(Customer).filter(
+                    Customer.business_id == business_id
+                )
+                
+                if customer_type_filter == 'MEMBER':
+                    customers_query = customers_query.filter(
+                        Customer.membership_id.isnot(None),
+                        Customer.membership_id != ''
+                    )
+                elif customer_type_filter == 'NON_MEMBER':
+                    customers_query = customers_query.filter(
+                        or_(
+                            Customer.membership_id.is_(None),
+                            Customer.membership_id == ''
+                        )
+                    )
+                # If 'ANY', no additional filter needed
+                
+                # Only get customers with email
+                customers_query = customers_query.filter(Customer.email.isnot(None), Customer.email != '')
+                
+                eligible_customers = customers_query.all()
+                
+                # Send email to each eligible customer
+                for customer in eligible_customers:
+                    try:
+                        email_service.send_offer_notification_email(
+                            customer_name=customer.name or "Valued Customer",
+                            customer_email=customer.email,
+                            offer_name=offer.name,
+                            offer_description=offer.description,
+                            reward_type=offer.reward_type,
+                            reward_value=str(offer.reward_value)
+                        )
+                    except Exception as e:
+                        # Log error but continue with other customers
+                        import logging
+                        logging.error(f"Error sending offer email to {customer.email}: {str(e)}")
+        except Exception as e:
+            # Log error but don't fail offer creation
+            import logging
+            logging.error(f"Error sending offer notifications: {str(e)}")
+    
     return offer
 
 
-@router.get("/offers")
+@router.get("/offers", response_model=list[OfferResponse])
 def get_offers(
     status: str = None,  # Filter by status: Active or Inactive
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     query = db.query(Offer).filter(Offer.business_id == business_id)
     
     # Filter by status if provided
-    if status:
-        query = query.filter(Offer.status == status)
+    if status == "Active":
+        query = query.filter(Offer.is_active == True)
+    elif status == "Inactive":
+        query = query.filter(Offer.is_active == False)
     
-    # For expired offers, check expiry_date
+    # For expired offers, check end_date
     if status == "Expired":
-        from datetime import datetime
-        query = query.filter(Offer.expiry_date < datetime.utcnow())
+        query = query.filter(Offer.end_date < date_type.today())
     
-    offers = query.order_by(Offer.start_date.desc() if Offer.start_date else Offer.created_at.desc()).all()
+    offers = query.order_by(Offer.priority.desc(), Offer.start_date.desc() if Offer.start_date else Offer.created_at.desc()).all()
     return offers
 
 
@@ -97,7 +156,7 @@ def list_earning_rules(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     rules = db.query(EarningRule).filter(EarningRule.business_id == business_id).all()
     return rules
 
@@ -108,7 +167,7 @@ def create_earning_rule(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     rule = EarningRule(
         business_id=business_id,
         rule_name=payload.rule_name,
@@ -128,7 +187,7 @@ def get_eligible_offers(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     customer_uuid = UUID(customer_id)
 
     customer = (
@@ -139,8 +198,28 @@ def get_eligible_offers(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    offers = db.query(Offer).filter(Offer.business_id == business_id).all()
-    eligible = [o for o in offers if customer.points >= o.points_required]
+    offers = db.query(Offer).filter(
+        Offer.business_id == business_id,
+        Offer.is_active == True
+    ).all()
+    
+    # Filter eligible offers based on customer points and reward type
+    from app.routers.rewards.points_ledger_service import get_customer_balance
+    customer_balance = get_customer_balance(db, customer.id)
+    
+    eligible = []
+    for o in offers:
+        if o.reward_type == "POINTS":
+            try:
+                points_needed = int(o.reward_value)
+                if customer_balance >= points_needed:
+                    eligible.append(o)
+            except ValueError:
+                pass
+        else:
+            # For other reward types, include them (logic can be extended later)
+            eligible.append(o)
+    
     return eligible
 
 
@@ -155,7 +234,7 @@ def redeem_offer(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     customer_uuid = UUID(customer_id)
     offer_uuid = UUID(offer_id)
 
@@ -175,30 +254,67 @@ def redeem_offer(
     if not offer:
         raise HTTPException(status_code=404, detail="Offer not found")
 
-    if customer.points < offer.points_required:
-        raise HTTPException(status_code=400, detail="Insufficient points")
-
-    # Deduct points
-    customer.points -= offer.points_required
-    history = PointsHistory(
-        customer_id=customer.id,
-        business_id=business_id,
-        points=-offer.points_required,
-        reason="redeem",
-    )
-    db.add(history)
-
+    # Check if customer has enough points for POINTS reward type
+    points_needed = 0
+    if offer.reward_type == "POINTS":
+        try:
+            points_needed = int(offer.reward_value)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid reward value")
+        
+        from app.routers.rewards.points_ledger_service import get_customer_balance
+        customer_balance = get_customer_balance(db, customer.id)
+        
+        if customer_balance < points_needed:
+            raise HTTPException(status_code=400, detail="Insufficient points")
+    
+    # Deduct points if reward type is POINTS
+    if offer.reward_type == "POINTS":
+        # Use ledger system (negative points for redemption)
+        from app.routers.rewards.points_ledger_service import add_points_to_ledger
+        add_points_to_ledger(
+            db=db,
+            customer_id=customer.id,
+            points_earned=-points_needed,
+            reward_type_applied=offer.reward_type,
+            rule_id=offer.id
+        )
+        
+        # Also keep old PointsHistory for backward compatibility
+        history = PointsHistory(
+            customer_id=customer.id,
+            business_id=business_id,
+            points=-points_needed,
+            reason="redeem",
+        )
+        db.add(history)
     redemption = Redemption(
         customer_id=customer.id,
         offer_id=offer.id,
         business_id=business_id,
-        points_used=offer.points_required,
+        points_used=points_needed if offer.reward_type == "POINTS" else 0,
         redemption_code=_generate_redemption_code(),
     )
     db.add(redemption)
 
-    # Queue notification for redemption (email + sms)
+    # Send redemption confirmation email
     if customer.email:
+        try:
+            from app.routers.notifications.email_service import email_service
+            email_service.send_redemption_confirmation_email(
+                customer_name=customer.name or "Customer",
+                customer_email=customer.email,
+                offer_name=offer.name or offer.title or "Offer",
+                reward_type=offer.reward_type,
+                reward_value=str(offer.reward_value),
+                redemption_code=redemption.redemption_code
+            )
+        except Exception as e:
+            # Log error but don't fail redemption
+            import logging
+            logging.error(f"Error sending redemption email: {str(e)}")
+        
+        # Also queue notification for tracking
         queue_notification(
             db,
             customer_id=customer.id,
@@ -207,11 +323,12 @@ def redeem_offer(
             payload={
                 "email": customer.email,
                 "name": customer.name,
-                "offer_title": offer.title,
+                "offer_title": offer.name or offer.title,
                 "redemption_code": redemption.redemption_code,
             },
         )
 
+    # Queue SMS notification
     queue_notification(
         db,
         customer_id=customer.id,

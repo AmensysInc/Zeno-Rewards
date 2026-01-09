@@ -7,6 +7,7 @@ from app.routers.organizations.org_models import Organization
 from app.routers.businesses.biz_models import Business
 from app.routers.businesses.staff_models import Staff
 from app.routers.admin.admin_models import Admin
+from app.routers.customers.cust_models import Customer
 
 router = APIRouter()
 
@@ -103,4 +104,33 @@ def login_staff(login_data: LoginRequest, db: Session = Depends(get_db)):
         "role": "staff",
         "staff_id": str(staff.id),
         "business_id": str(staff.business_id)
+    }
+
+
+@router.post("/login-customer")
+def login_customer(login_data: LoginRequest, db: Session = Depends(get_db)):
+    customer = db.query(Customer).filter(Customer.email == login_data.email).first()
+    if not customer:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Check if customer has a password set
+    if not customer.password_hash:
+        raise HTTPException(status_code=401, detail="Password not set. Please contact support.")
+    
+    if not verify_password(login_data.password, customer.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    data = {
+        "sub": str(customer.id),
+        "role": "customer",
+        "customer_id": str(customer.id),
+        "business_id": str(customer.business_id)
+    }
+
+    return {
+        "access_token": create_access_token(data),
+        "refresh_token": create_refresh_token(data),
+        "role": "customer",
+        "customer_id": str(customer.id),
+        "business_id": str(customer.business_id)
     }

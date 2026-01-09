@@ -7,13 +7,12 @@ if (-not (Test-Path "node_modules")) {
     npm install
 }
 
-# Create .env file if it doesn't exist
+# Create .env file if it doesn't exist (Vite uses VITE_ prefix)
 if (-not (Test-Path ".env")) {
     Write-Host "Creating .env file..." -ForegroundColor Yellow
-    "REACT_APP_API_URL=http://localhost:8000" | Out-File -FilePath ".env" -Encoding utf8
+    "VITE_API_URL=http://localhost:8000" | Out-File -FilePath ".env" -Encoding utf8
 }
 
-# Start the frontend server
-Write-Host "Starting frontend server on http://localhost:3000" -ForegroundColor Green
-npm start
-
+# Start the frontend server with Vite
+Write-Host "Starting frontend server (Vite) on http://localhost:3000" -ForegroundColor Green
+npm run dev

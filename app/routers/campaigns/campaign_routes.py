@@ -23,7 +23,7 @@ def list_campaigns(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     campaigns = db.query(Campaign).filter(Campaign.business_id == business_id).all()
     return [
         {
@@ -47,7 +47,7 @@ def create_campaign(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_business),
 ):
-    business_id = UUID(current["user"]["business_id"])
+    business_id = current["business"].id
     campaign = Campaign(
         business_id=business_id,
         name=name,
