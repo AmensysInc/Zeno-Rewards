@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ class EmailService:
         password_section = ""
         if password_setup_token:
             # In production, replace with actual frontend URL
-            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            frontend_url = settings.FRONTEND_URL
             setup_url = f"{frontend_url}/customer/setup-password?token={password_setup_token}"
             password_section = f"""
             <div style="background-color: #e3f2fd; border: 2px solid #2196F3; padding: 20px; margin: 20px 0; border-radius: 5px; text-align: center;">
@@ -212,7 +213,7 @@ class EmailService:
         
         password_text = ""
         if password_setup_token:
-            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            frontend_url = settings.FRONTEND_URL
             setup_url = f"{frontend_url}/customer/setup-password?token={password_setup_token}"
             password_text = f"""
             

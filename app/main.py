@@ -2,7 +2,9 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from app.database import Base, engine
+from app.config import settings
 
 # Import all models so SQLAlchemy creates tables
 from app.routers.organizations.org_models import Organization
@@ -39,9 +41,20 @@ from app.routers.businesses.staff_customer_routes import router as staff_custome
 app = FastAPI()
 
 # CORS middleware - MUST be added before other middleware
+# Configure CORS based on environment
+if settings.is_production:
+    # In production, only allow specific frontend URL
+    allowed_origins = [settings.FRONTEND_URL]
+    if settings.FRONTEND_URL.startswith("https://"):
+        # Also allow HTTP version if HTTPS is set (for development/testing)
+        allowed_origins.append(settings.FRONTEND_URL.replace("https://", "http://"))
+else:
+    # In development, allow all origins
+    allowed_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,7 +74,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": f"Internal server error: {str(exc)}"},
         headers={
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": settings.FRONTEND_URL if settings.is_production else "*",
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "*",
             "Access-Control-Allow-Headers": "*",
@@ -88,3 +101,19 @@ app.include_router(points_ledger_router, prefix="/rewards", tags=["Points Ledger
 app.include_router(rule_management_router, prefix="/rewards", tags=["Rule Management"])
 app.include_router(redeemable_offer_router, prefix="/rewards", tags=["Redeemable Offers"])
 app.include_router(chat_router, prefix="/chat", tags=["Chat"])
+
+# Serve static files from frontend build in production
+if settings.is_production:
+    import os
+    frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+    if os.path.exists(frontend_dist):
+        app.mount("/static", StaticFiles(directory=frontend_dist), name="static")
+        
+        # Serve index.html for all non-API routes (SPA routing)
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            from fastapi.responses import FileResponse
+            index_path = os.path.join(frontend_dist, "index.html")
+            if os.path.exists(index_path):
+                return FileResponse(index_path)
+            return {"detail": "Frontend not found"}
